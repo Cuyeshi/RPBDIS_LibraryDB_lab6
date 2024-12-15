@@ -1,0 +1,235 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Books Management</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container mt-5">
+        <h1 class="text-center">Books Management</h1>
+
+        <!-- Add Book Form -->
+        <form id="bookForm" class="mt-4">
+            <input type="hidden" id="bookId">
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label for="title" class="form-label">Title</label>
+                    <input type="text" class="form-control" id="title" required>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label for="author" class="form-label">Author</label>
+                    <input type="text" class="form-control" id="author" required>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label for="publishYear" class="form-label">Publish Year</label>
+                    <input type="number" class="form-control" id="publishYear" required>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label for="price" class="form-label">Price</label>
+                    <input type="number" class="form-control" id="price" step="0.01" required>
+                </div>
+            </div>
+            <button type="submit" class="btn btn-primary">Save</button>
+        </form>
+
+        <!-- Edit Book Form -->
+        <div id="edit-modal" class="modal fade" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Edit Book</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <label>Title: <input type="text" id="edit-title" /></label>
+                        <label>Author: <input type="text" id="edit-author" /></label>
+                        <label>Year: <input type="text" id="edit-publishYear" /></label>
+                        <label>Price: <input type="text" id="edit-price" /></label>
+                        <input type="hidden" id="edit-id" />
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-primary" onclick="saveBook()">Save</button>
+                        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Books Table -->
+        <table class="table table-bordered mt-4">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Title</th>
+                    <th>Author</th>
+                    <th>Publish Year</th>
+                    <th>Price</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="books-table">
+            </tbody>
+        </table>
+
+        <!-- Pagination Controls -->
+        <nav>
+            <ul class="pagination justify-content-center">
+                <li class="page-item" id="firstPage"><a class="page-link" href="#">First</a></li>
+                <li class="page-item" id="prevPage"><a class="page-link" href="#">Previous</a></li>
+                <li class="page-item disabled" id="currentPage"><a class="page-link" href="#">1</a></li>
+                <li class="page-item" id="nextPage"><a class="page-link" href="#">Next</a></li>
+                <li class="page-item" id="lastPage"><a class="page-link" href="#">Last</a></li>
+            </ul>
+        </nav>
+    </div>
+
+
+
+    <script>
+        const apiUrl = '/api/Books';
+        const pageSize = 6; // Number of books per page
+        let currentPage = 1; // Current page number
+        let totalPages = 1;  // Total pages, fetched dynamically
+
+        // Fetch and display books with pagination
+        async function fetchBooks(page = 1) {
+            const response = await fetch(`${apiUrl}?page=${page}&pageSize=${pageSize}`);
+            const data = await response.json();
+            const books = data.books;
+            totalPages = data.totalPages;
+
+            const tableBody = document.querySelector('#books-table');
+            tableBody.innerHTML = books.map(book => `
+                        <tr>
+                            <td>${book.bookId}</td>
+                            <td>${book.title}</td>
+                            <td>${book.author}</td>
+                            <td>${book.publishYear}</td>
+                            <td>${book.price}</td>
+                            <td>
+                                <button class="btn btn-sm btn-warning" onclick="editBook(${book.bookId})">Edit</button>
+                                <button class="btn btn-sm btn-danger" onclick="deleteBook(${book.bookId})">Delete</button>
+                            </td>
+                        </tr>
+                    `).join('');
+
+            // Update pagination controls
+            document.getElementById('currentPage').innerText = `Page ${page} of ${totalPages}`;
+            document.getElementById('prevPage').classList.toggle('disabled', page === 1);
+            document.getElementById('nextPage').classList.toggle('disabled', page === totalPages);
+            document.getElementById('firstPage').classList.toggle('disabled', page === 1);
+            document.getElementById('lastPage').classList.toggle('disabled', page === totalPages);
+        }
+
+        // Add/Edit book
+        document.getElementById('bookForm').addEventListener('submit', async function (e) {
+            e.preventDefault();
+
+            const book = {
+                title: document.getElementById('title').value,
+                author: document.getElementById('author').value,
+                publishYear: parseInt(document.getElementById('publishYear').value),
+                price: parseFloat(document.getElementById('price').value)
+            };
+
+            const bookId = document.getElementById('bookId').value;
+            const method = bookId ? 'PUT' : 'POST';
+            const url = bookId ? `${apiUrl}/${bookId}` : apiUrl;
+
+            await fetch(url, {
+                method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(book)
+            });
+
+            document.getElementById('bookForm').reset();
+            fetchBooks(currentPage);
+        });
+
+        // Edit book
+        function editBook(id) {
+            // Подгружаем информацию о книге
+            fetch(`/api/Books/${id}`)
+                .then(response => {
+                    if (!response.ok) throw new Error('Failed to fetch book data');
+                    return response.json();
+                })
+                .then(book => {
+                    document.getElementById('edit-title').value = book.title || '';
+                    document.getElementById('edit-author').value = book.author || '';
+                    document.getElementById('edit-id').value = book.bookId || '';
+                    new bootstrap.Modal(document.getElementById('edit-modal')).show();
+                    document.getElementById('edit-publishYear').value = book.publishYear || '';
+                    document.getElementById('edit-price').value = book.price || '';
+
+                })
+                .catch(error => console.error('Error fetching book:', error));
+        }
+
+        // Обработчик для сохранения изменений
+        function saveBook() {
+            const id = document.getElementById('edit-id').value;
+            const updatedBook = {
+                title: document.getElementById('edit-title').value,
+                author: document.getElementById('edit-author').value,
+                publishYear: parseInt(document.getElementById('edit-publishYear').value),
+                price: parseFloat(document.getElementById('edit-price').value)
+            };
+
+
+            fetch(`/api/Books/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updatedBook)
+            })
+                .then(response => {
+                    if (!response.ok) throw new Error('Error updating book');
+                    // Закрыть модальное окно
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('edit-modal'));
+                    modal.hide();
+                    // Обновить интерфейс
+                    fetchBooks(currentPage); // Функция для перезагрузки списка книг
+                })
+                .catch(error => console.error('Error updating book:', error));
+        }
+
+        // Delete book
+        async function deleteBook(id) {
+            await fetch(`${apiUrl}/${id}`, { method: 'DELETE' });
+            fetchBooks(currentPage);
+        }
+
+        // Pagination controls
+        document.getElementById('prevPage').addEventListener('click', () => {
+            if (currentPage > 1) {
+                currentPage--;
+                fetchBooks(currentPage);
+            }
+        });
+
+        document.getElementById('nextPage').addEventListener('click', () => {
+            if (currentPage < totalPages) {
+                currentPage++;
+                fetchBooks(currentPage);
+            }
+        });
+
+        document.getElementById('lastPage').addEventListener('click', () => {
+            currentPage = totalPages;
+            fetchBooks(currentPage);
+        });
+
+        document.getElementById('firstPage').addEventListener('click', () => {
+            currentPage = 1;
+            fetchBooks(currentPage);
+        });
+
+        // Initial fetch
+        fetchBooks();
+    </script>
+</body>
+</html>

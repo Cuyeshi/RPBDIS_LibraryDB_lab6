@@ -1,6 +1,6 @@
-@RPBDIS_LibraryDB_lab6_HostAddress = http://localhost:5145
+@RPBDIS_LibraryDB_lab6_HostAddress = http://localhost:7035
 
-GET {{RPBDIS_LibraryDB_lab6_HostAddress}}/weatherforecast/
+GET {{RPBDIS_LibraryDB_lab6_HostAddress}}/books/
 Accept: application/json
 
 ###
