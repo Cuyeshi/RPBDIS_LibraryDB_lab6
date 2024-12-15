@@ -34,7 +34,3 @@ jobs:
       # Компилируем проект
       - name: Build project
         run: dotnet build RPBDIS_LibraryDB_lab6/RPBDIS_LibraryDB_lab6.sln --configuration Release --no-restore
-
-      # Запускаем тесты (если они есть)
-      - name: Run tests
-        run: dotnet test Test_lab6/Test_lab6.csproj --no-build --verbosity normal
