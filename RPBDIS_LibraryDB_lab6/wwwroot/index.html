@@ -22,6 +22,12 @@
                     <label for="author" class="form-label">Author</label>
                     <input type="text" class="form-control" id="author" required>
                 </div>
+                <div class="col-md-6 mb-3">
+                    <label for="genre" class="form-label">Genre</label>
+                    <select class="form-select" id="genre" required>
+                        <!-- Options будут загружены из API -->
+                    </select>
+                </div>
             </div>
             <div class="row">
                 <div class="col-md-6 mb-3">
@@ -32,23 +38,41 @@
                     <label for="price" class="form-label">Price</label>
                     <input type="number" class="form-control" id="price" step="0.01" required>
                 </div>
+                <div class="col-md-6 mb-3">
+                    <label for="publisher" class="form-label">Publisher</label>
+                    <select class="form-select" id="publisher" required>
+                        <!-- Options будут загружены из API -->
+                    </select>
+                </div>
             </div>
             <button type="submit" class="btn btn-primary">Save</button>
         </form>
 
         <!-- Edit Book Form -->
-        <div id="edit-modal" class="modal fade" tabindex="-1">
+        <div id="edit-modal" class="modal fade" tabindex="-1" aria-labelledby="editModalLabel" aria-hidden="true">
             <div class="modal-dialog">
                 <div class="modal-content">
                     <div class="modal-header">
-                        <h5 class="modal-title">Edit Book</h5>
+                        <h5 class="modal-title" id="editModalLabel">Edit Book</h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body">
-                        <label>Title: <input type="text" id="edit-title" /></label>
-                        <label>Author: <input type="text" id="edit-author" /></label>
-                        <label>Year: <input type="text" id="edit-publishYear" /></label>
-                        <label>Price: <input type="text" id="edit-price" /></label>
+                        <label for="edit-title" class="form-label">Title</label>
+                        <input type="text" id="edit-title" class="form-control" />
+                        <label for="edit-author" class="form-label">Author</label>
+                        <input type="text" id="edit-author" class="form-control" />
+                        <label for="edit-publishYear" class="form-label">Year</label>
+                        <input type="number" id="edit-publishYear" class="form-control" />
+                        <label for="edit-price" class="form-label">Price</label>
+                        <input type="number" id="edit-price" class="form-control" />
+                        <label for="edit-genre" class="form-label">Genre</label>
+                        <select id="edit-genre" class="form-select">
+                            <!-- Options будут загружены динамически -->
+                        </select>
+                        <label for="edit-publisher" class="form-label">Publisher</label>
+                        <select id="edit-publisher" class="form-select">
+                            <!-- Options будут загружены динамически -->
+                        </select>
                         <input type="hidden" id="edit-id" />
                     </div>
                     <div class="modal-footer">
@@ -68,6 +92,8 @@
                     <th>Author</th>
                     <th>Publish Year</th>
                     <th>Price</th>
+                    <th>Genre</th>
+                    <th>Publisher</th>
                     <th>Actions</th>
                 </tr>
             </thead>
@@ -104,18 +130,21 @@
 
             const tableBody = document.querySelector('#books-table');
             tableBody.innerHTML = books.map(book => `
-                        <tr>
-                            <td>${book.bookId}</td>
-                            <td>${book.title}</td>
-                            <td>${book.author}</td>
-                            <td>${book.publishYear}</td>
-                            <td>${book.price}</td>
-                            <td>
-                                <button class="btn btn-sm btn-warning" onclick="editBook(${book.bookId})">Edit</button>
-                                <button class="btn btn-sm btn-danger" onclick="deleteBook(${book.bookId})">Delete</button>
-                            </td>
-                        </tr>
-                    `).join('');
+                <tr>
+                    <td>${book.bookId}</td>
+                    <td>${book.title}</td>
+                    <td>${book.author}</td>
+                    <td>${book.publishYear}</td>
+                    <td>${book.price}</td>
+                    <td>${book.genre}</td>
+                    <td>${book.publisher}</td>
+                    <td>
+                        <button class="btn btn-sm btn-warning" onclick='editBook(${JSON.stringify(book)})'>Edit</button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteBook(${book.bookId})">Delete</button>
+                    </td>
+                </tr>
+            `).join('');
+
 
             // Update pagination controls
             document.getElementById('currentPage').innerText = `Page ${page} of ${totalPages}`;
@@ -125,77 +154,116 @@
             document.getElementById('lastPage').classList.toggle('disabled', page === totalPages);
         }
 
-        // Add/Edit book
-        document.getElementById('bookForm').addEventListener('submit', async function (e) {
+        // Add book
+        document.getElementById("bookForm").addEventListener("submit", async function (e) {
             e.preventDefault();
-
-            const book = {
-                title: document.getElementById('title').value,
-                author: document.getElementById('author').value,
-                publishYear: parseInt(document.getElementById('publishYear').value),
-                price: parseFloat(document.getElementById('price').value)
+            const bookId = document.getElementById("bookId").value;
+            const bookData = {
+                title: document.getElementById("title").value,
+                author: document.getElementById("author").value,
+                publishYear: parseInt(document.getElementById("publishYear").value),
+                price: parseFloat(document.getElementById("price").value),
+                genreId: parseInt(document.getElementById("genre").value),
+                publisherId: parseInt(document.getElementById("publisher").value),
             };
 
-            const bookId = document.getElementById('bookId').value;
-            const method = bookId ? 'PUT' : 'POST';
-            const url = bookId ? `${apiUrl}/${bookId}` : apiUrl;
+            const method = bookId ? "PUT" : "POST";
+            const url = bookId ? `/api/Books/${bookId}` : `/api/Books`;
 
             await fetch(url, {
-                method,
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(book)
+                method: method,
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify(bookData)
             });
-
-            document.getElementById('bookForm').reset();
-            fetchBooks(currentPage);
+            loadBooks();
         });
 
         // Edit book
-        function editBook(id) {
-            // Подгружаем информацию о книге
-            fetch(`/api/Books/${id}`)
-                .then(response => {
-                    if (!response.ok) throw new Error('Failed to fetch book data');
-                    return response.json();
-                })
-                .then(book => {
-                    document.getElementById('edit-title').value = book.title || '';
-                    document.getElementById('edit-author').value = book.author || '';
-                    document.getElementById('edit-id').value = book.bookId || '';
-                    new bootstrap.Modal(document.getElementById('edit-modal')).show();
-                    document.getElementById('edit-publishYear').value = book.publishYear || '';
-                    document.getElementById('edit-price').value = book.price || '';
+        function editBook(book) {
+            // Парсим объект, если передан как строка
+            if (typeof book === 'string') {
+                book = JSON.parse(book);
+            }
+            document.getElementById("edit-id").value = book.bookId || '';
+            document.getElementById("edit-title").value = book.title || '';
+            document.getElementById("edit-author").value = book.author || '';
+            document.getElementById("edit-publishYear").value = book.publishYear || '';
+            document.getElementById("edit-price").value = book.price || '';
+            document.getElementById("edit-genre").value = book.genreId || '';
+            document.getElementById("edit-publisher").value = book.publisherId || '';
 
-                })
-                .catch(error => console.error('Error fetching book:', error));
+            loadGenresAndPublishers();
+
+            const modal = new bootstrap.Modal(document.getElementById("edit-modal"));
+            modal.show();
+        }
+
+
+        async function loadGenresAndPublishers() {
+            const genresResponse = await fetch(`${apiUrl}/Genres`);
+            const publishersResponse = await fetch(`${apiUrl}/Publishers`);
+            const genres = await genresResponse.json();
+            const publishers = await publishersResponse.json();
+
+            const genreSelect = document.getElementById('edit-genre');
+            const publisherSelect = document.getElementById('edit-publisher');
+
+            genreSelect.innerHTML = genres.map(g => `<option value="${g.genreId}">${g.name}</option>`).join('');
+            publisherSelect.innerHTML = publishers.map(p => `<option value="${p.publisherId}">${p.name}</option>`).join('');
         }
 
         // Обработчик для сохранения изменений
-        function saveBook() {
-            const id = document.getElementById('edit-id').value;
-            const updatedBook = {
-                title: document.getElementById('edit-title').value,
-                author: document.getElementById('edit-author').value,
-                publishYear: parseInt(document.getElementById('edit-publishYear').value),
-                price: parseFloat(document.getElementById('edit-price').value)
+        async function saveBook() {
+            const bookId = document.getElementById("edit-id").value.trim();
+            console.log("Book ID:", bookId); // Для проверки
+
+            if (!bookId) {
+                alert('Book ID is missing. Please check your input.');
+                return;
+            }
+
+            const bookData = {
+                bookId: parseInt(bookId),
+                title: document.getElementById("edit-title").value,
+                author: document.getElementById("edit-author").value,
+                publishYear: parseInt(document.getElementById("edit-publishYear").value),
+                price: parseFloat(document.getElementById("edit-price").value),
+                genreId: parseInt(document.getElementById("edit-genre").value),
+                publisherId: parseInt(document.getElementById("edit-publisher").value),
             };
 
+            try {
+                const response = await fetch(`${apiUrl}/${bookId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(bookData),
+                });
 
-            fetch(`/api/Books/${id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(updatedBook)
-            })
-                .then(response => {
-                    if (!response.ok) throw new Error('Error updating book');
-                    // Закрыть модальное окно
+                if (response.ok) {
+                    alert('Book updated successfully!');
+                    fetchBooks(currentPage);
                     const modal = bootstrap.Modal.getInstance(document.getElementById('edit-modal'));
                     modal.hide();
-                    // Обновить интерфейс
-                    fetchBooks(currentPage); // Функция для перезагрузки списка книг
-                })
-                .catch(error => console.error('Error updating book:', error));
+                } else {
+                    const contentType = response.headers.get("content-type");
+                    if (contentType && contentType.includes("application/json")) {
+                        const error = await response.json();
+                        alert(`Error updating book: ${error.message}`);
+                    } else {
+                        const errorText = await response.text();
+                        alert(`Error updating book: ${errorText}`);
+                    }
+                }
+            } catch (error) {
+                console.error('Error updating book:', error);
+            }
         }
+
+
+
+        
 
         // Delete book
         async function deleteBook(id) {
@@ -230,6 +298,33 @@
 
         // Initial fetch
         fetchBooks();
+
+        // Fetch genres and populate the dropdown
+        async function fetchGenres() {
+            const response = await fetch('/api/Books/Genres');
+            const genres = await response.json();
+            const genreSelect = document.getElementById('genre');
+            genreSelect.innerHTML = genres.map(genre => `<option value="${genre.genreId}">${genre.name}</option>`).join('');
+        }
+
+        // Fetch publishers and populate the dropdown
+        async function fetchPublishers() {
+            const response = await fetch('/api/Books/Publishers');
+            const publishers = await response.json();
+            const publisherSelect = document.getElementById('publisher');
+            publisherSelect.innerHTML = publishers.map(publisher => `<option value="${publisher.publisherId}">${publisher.name}</option>`).join('');
+        }
+
+        // Initialize form dropdowns
+        async function initializeFormDropdowns() {
+            await Promise.all([fetchGenres(), fetchPublishers()]);
+        }
+
+        // Call initialization function on page load
+        document.addEventListener('DOMContentLoaded', initializeFormDropdowns);
+
     </script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js"></script>
+
 </body>
 </html>
